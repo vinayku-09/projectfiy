@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+:root {
+  background-color: #0B0E14;
+  color: white;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #0B0E14;
+  color: white;
+}
+
+/* Ensure inputs aren't white */
+input, textarea {
+  background-color: #0D1117 !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}

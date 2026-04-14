@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Database
+*.sq3
+*.sqlite
+
+# Environment variables
+.env
+
+# Build folders
+dist/
+build/
