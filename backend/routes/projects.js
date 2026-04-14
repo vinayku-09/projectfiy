@@ -11,6 +11,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // ── GET /projects ───────────────────────────────────────────────────────────
 // Query params: page, limit, status, sortBy, sortOrder
 router.get('/', (req, res) => {
+    const userId = req.user.id;
     const rawPage = req.query.page;
     const rawLimit = req.query.limit;
     if ((rawPage !== undefined && !/^\d+$/.test(String(rawPage))) ||
@@ -27,8 +28,8 @@ router.get('/', (req, res) => {
 
     // Build optional WHERE clause
     const useFilter   = status !== 'All';
-    const whereClause = useFilter ? `WHERE status = ?` : ``;
-    const filterParam = useFilter ? [status] : [];
+    const whereClause = useFilter ? `WHERE user_id = ? AND status = ?` : `WHERE user_id = ?`;
+    const filterParam = useFilter ? [userId, status] : [userId];
 
     // 1. Paginated project rows
     const projectsSql = `
@@ -49,6 +50,7 @@ router.get('/', (req, res) => {
             SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed,
             SUM(CASE WHEN status = 'On Hold'   THEN 1 ELSE 0 END) AS onHold
         FROM projects
+        WHERE user_id = ?
     `;
 
     // Run all three queries, then assemble the response
@@ -74,7 +76,7 @@ router.get('/', (req, res) => {
                 task_counts: taskCountMap[project.id] || { todo: 0, in_progress: 0, done: 0 }
             }));
 
-            db.get(statsSql, [], (statsErr, stats) => {
+            db.get(statsSql, [userId], (statsErr, stats) => {
                 if (statsErr) {
                     console.error('Stats query error:', statsErr.message);
                     return res.status(500).json({ error: statsErr.message });
@@ -131,11 +133,12 @@ router.get('/', (req, res) => {
 // ── GET /projects/:id ────────────────────────────────────────────────────────
 router.get('/:id', (req, res) => {
     const id = Number(req.params.id);
+    const userId = req.user.id;
     if (!Number.isInteger(id) || id <= 0) {
         return res.status(400).json({ error: 'Project id must be a positive integer' });
     }
 
-    db.get(`SELECT * FROM projects WHERE id = ?`, [id], (err, project) => {
+    db.get(`SELECT * FROM projects WHERE id = ? AND user_id = ?`, [id, userId], (err, project) => {
         if (err) {
             console.error('Project lookup error:', err.message);
             return res.status(500).json({ error: err.message });
@@ -173,6 +176,7 @@ router.get('/:id', (req, res) => {
 
 // ── POST /projects ──────────────────────────────────────────────────────────
 router.post('/', (req, res) => {
+    const userId = req.user.id;
     const body = req.body || {};
     const { name, description, priority, due_date, remaining_work, tasks } = body;
 
@@ -186,12 +190,12 @@ router.post('/', (req, res) => {
     const safePriority = Number.isInteger(Number(priority)) ? Number(priority) : 3;
 
     const sql = `
-        INSERT INTO projects (name, description, priority, due_date, remaining_work, status)
-        VALUES (?, ?, ?, ?, ?, 'Active')
+        INSERT INTO projects (user_id, name, description, priority, due_date, remaining_work, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'Active')
         RETURNING id
     `;
 
-    db.run(sql, [String(name).trim(), description || null, safePriority, due_date || null, remaining_work || null], function(err) {
+    db.run(sql, [userId, String(name).trim(), description || null, safePriority, due_date || null, remaining_work || null], function(err) {
         if (err) {
             console.error('Insert error:', err.message);
             return res.status(500).json({ error: err.message });
@@ -262,6 +266,7 @@ router.post('/', (req, res) => {
 // ── PUT /projects/:id ───────────────────────────────────────────────────────
 router.put('/:id', (req, res) => {
     const { id } = req.params;
+    const userId = req.user.id;
     const body = req.body || {};
     const { status, remaining_work } = body;
 
@@ -282,8 +287,8 @@ router.put('/:id', (req, res) => {
         return res.status(400).json({ error: 'No fields to update' });
     }
 
-    params.push(id);
-    const sql = `UPDATE projects SET ${fields.join(', ')} WHERE id = ?`;
+    params.push(id, userId);
+    const sql = `UPDATE projects SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`;
 
     db.run(sql, params, function(err) {
         if (err) {
@@ -300,8 +305,9 @@ router.put('/:id', (req, res) => {
 // ── DELETE /projects/:id ────────────────────────────────────────────────────
 router.delete('/:id', (req, res) => {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    db.run(`DELETE FROM projects WHERE id = ?`, [id], function(err) {
+    db.run(`DELETE FROM projects WHERE id = ? AND user_id = ?`, [id, userId], function(err) {
         if (err) {
             console.error('Delete error:', err.message);
             return res.status(500).json({ error: err.message });

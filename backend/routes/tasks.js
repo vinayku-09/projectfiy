@@ -25,6 +25,7 @@ const normalizePriority = (priority = 'medium') => {
 // GET /projects/{project_id}/tasks - Fetch tasks for a specific project
 router.get('/projects/:project_id/tasks', (req, res) => {
     const { project_id } = req.params;
+    const userId = req.user.id;
     const { status } = req.query;
     if (!/^\d+$/.test(String(project_id))) {
         return res.status(400).json({ error: 'project_id must be a positive integer' });
@@ -33,8 +34,8 @@ router.get('/projects/:project_id/tasks', (req, res) => {
         return res.status(400).json({ error: 'Invalid status filter' });
     }
 
-    let sql = `SELECT * FROM tasks WHERE project_id = ?`;
-    const params = [project_id];
+    let sql = `SELECT t.* FROM tasks t JOIN projects p ON p.id = t.project_id WHERE t.project_id = ? AND p.user_id = ?`;
+    const params = [project_id, userId];
 
     if (status) {
         sql += ` AND LOWER(status) IN (?, ?)`;
@@ -64,6 +65,7 @@ router.get('/projects/:project_id/tasks', (req, res) => {
 // POST /projects/{project_id}/tasks - Add task to project
 router.post('/projects/:project_id/tasks', (req, res) => {
     const { project_id } = req.params;
+    const userId = req.user.id;
     const body = req.body || {};
     const { title, description, status, priority, due_date } = body;
 
@@ -97,7 +99,7 @@ router.post('/projects/:project_id/tasks', (req, res) => {
         due_date || null
     ];
 
-    db.get(`SELECT id FROM projects WHERE id = ?`, [project_id], (projectErr, projectRow) => {
+    db.get(`SELECT id FROM projects WHERE id = ? AND user_id = ?`, [project_id, userId], (projectErr, projectRow) => {
         if (projectErr) return res.status(500).json({ error: projectErr.message });
         if (!projectRow) return res.status(404).json({ error: `Project #${project_id} not found` });
 
@@ -119,6 +121,7 @@ router.post('/projects/:project_id/tasks', (req, res) => {
 // PUT /tasks/{id} - Update task
 router.put('/tasks/:id', (req, res) => {
     const body = req.body || {};
+    const userId = req.user.id;
     const { status, title, description, priority, due_date } = body;
     if (!/^\d+$/.test(String(req.params.id))) {
         return res.status(400).json({ error: 'Task id must be a positive integer' });
@@ -161,8 +164,8 @@ router.put('/tasks/:id', (req, res) => {
         return res.status(400).json({ error: 'No fields provided for update' });
     }
 
-    const sql = `UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`;
-    values.push(req.params.id);
+    const sql = `UPDATE tasks SET ${fields.join(', ')} WHERE id = ? AND project_id IN (SELECT id FROM projects WHERE user_id = ?)`;
+    values.push(req.params.id, userId);
 
     db.run(sql, values, function(err) {
         if (err) return res.status(500).json({ error: err.message });
@@ -173,10 +176,11 @@ router.put('/tasks/:id', (req, res) => {
 
 // DELETE /tasks/{id} - Delete a task
 router.delete('/tasks/:id', (req, res) => {
+    const userId = req.user.id;
     if (!/^\d+$/.test(String(req.params.id))) {
         return res.status(400).json({ error: 'Task id must be a positive integer' });
     }
-    db.run(`DELETE FROM tasks WHERE id = ?`, [req.params.id], function(err) {
+    db.run(`DELETE FROM tasks WHERE id = ? AND project_id IN (SELECT id FROM projects WHERE user_id = ?)`, [req.params.id, userId], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) {
             return res.status(404).json({ error: `Task #${req.params.id} not found` });
