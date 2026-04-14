@@ -173,7 +173,8 @@ router.get('/:id', (req, res) => {
 
 // ── POST /projects ──────────────────────────────────────────────────────────
 router.post('/', (req, res) => {
-    const { name, description, priority, due_date, remaining_work, tasks } = req.body;
+    const body = req.body || {};
+    const { name, description, priority, due_date, remaining_work, tasks } = body;
 
     if (!name || !String(name).trim()) {
         return res.status(400).json({ error: 'Name is required' });
@@ -261,7 +262,8 @@ router.post('/', (req, res) => {
 // ── PUT /projects/:id ───────────────────────────────────────────────────────
 router.put('/:id', (req, res) => {
     const { id } = req.params;
-    const { status, remaining_work } = req.body;
+    const body = req.body || {};
+    const { status, remaining_work } = body;
 
     // Whitelist valid statuses
     const VALID_STATUSES = ['Active', 'Pending', 'Completed', 'On Hold'];

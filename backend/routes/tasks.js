@@ -64,7 +64,8 @@ router.get('/projects/:project_id/tasks', (req, res) => {
 // POST /projects/{project_id}/tasks - Add task to project
 router.post('/projects/:project_id/tasks', (req, res) => {
     const { project_id } = req.params;
-    const { title, description, status, priority, due_date } = req.body;
+    const body = req.body || {};
+    const { title, description, status, priority, due_date } = body;
 
     if (!/^\d+$/.test(String(project_id))) {
         return res.status(400).json({ error: 'project_id must be a positive integer' });
@@ -117,7 +118,8 @@ router.post('/projects/:project_id/tasks', (req, res) => {
 
 // PUT /tasks/{id} - Update task
 router.put('/tasks/:id', (req, res) => {
-    const { status, title, description, priority, due_date } = req.body;
+    const body = req.body || {};
+    const { status, title, description, priority, due_date } = body;
     if (!/^\d+$/.test(String(req.params.id))) {
         return res.status(400).json({ error: 'Task id must be a positive integer' });
     }

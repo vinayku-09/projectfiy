@@ -6,7 +6,11 @@ const db = require('../config/database');
 
 // REGISTER 
 router.post('/register', async (req, res) => {
-    const { name, email, password } = req.body;
+    const body = req.body || {};
+    const { name, email, password } = body;
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: 'name, email and password are required' });
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const sql = `INSERT INTO users (name, email, password) VALUES (?, ?, ?)`;
@@ -18,7 +22,11 @@ router.post('/register', async (req, res) => {
 
 // LOGIN 
 router.post('/login', (req, res) => {
-    const { email, password } = req.body;
+    const body = req.body || {};
+    const { email, password } = body;
+    if (!email || !password) {
+        return res.status(400).json({ error: 'email and password are required' });
+    }
     const sql = `SELECT * FROM users WHERE email = ?`;
 
     db.get(sql, [email], async (err, user) => {

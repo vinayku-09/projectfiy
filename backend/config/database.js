@@ -1,11 +1,11 @@
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 const connectionString =
   process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL;
 
 const initSqlite = () => {
+  const sqlite3 = require('sqlite3').verbose();
   const dbPath = path.resolve(__dirname, '../projectify.sq3');
   const sqliteDb = new sqlite3.Database(dbPath);
   sqliteDb.serialize(() => {
@@ -49,6 +49,9 @@ const initSqlite = () => {
 };
 
 if (!connectionString) {
+  if (process.env.VERCEL === '1') {
+    throw new Error('DATABASE_URL is required on Vercel. Please add it in Vercel Environment Variables.');
+  }
   const sqliteDb = initSqlite();
   sqliteDb.execute = (sql, params = []) =>
     new Promise((resolve, reject) => {
