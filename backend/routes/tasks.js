@@ -86,7 +86,7 @@ router.post('/projects/:project_id/tasks', (req, res) => {
     const normalizedStatusDb = normalizeStatusForDb(status);
     const normalizedPriority = normalizePriority(priority);
 
-    const sql = `INSERT INTO tasks (project_id, title, description, status, priority, due_date) VALUES (?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO tasks (project_id, title, description, status, priority, due_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`;
     const params = [
         project_id,
         title,

@@ -187,6 +187,7 @@ router.post('/', (req, res) => {
     const sql = `
         INSERT INTO projects (name, description, priority, due_date, remaining_work, status)
         VALUES (?, ?, ?, ?, ?, 'Active')
+        RETURNING id
     `;
 
     db.run(sql, [String(name).trim(), description || null, safePriority, due_date || null, remaining_work || null], function(err) {
@@ -223,42 +224,34 @@ router.post('/', (req, res) => {
             });
         }
 
-        const taskSql = `
-            INSERT INTO tasks (project_id, title, description, status, priority, due_date)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `;
-        const stmt = db.prepare(taskSql);
+        const taskSql = `INSERT INTO tasks (project_id, title, description, status, priority, due_date) VALUES (?, ?, ?, ?, ?, ?)`;
         let completed = 0;
         let failed = false;
 
         normalizedTasks.forEach((task) => {
-            stmt.run(
+            db.run(
+                taskSql,
                 [projectId, task.title, task.description, task.status, task.priority, task.due_date],
                 (taskErr) => {
-                    if (failed) return;
-                    if (taskErr) {
-                        failed = true;
-                        console.error('Task insert error:', taskErr.message);
-                        stmt.finalize(() => {
-                            res.status(500).json({ error: taskErr.message });
-                        });
-                        return;
-                    }
-                    completed += 1;
-                    if (completed === normalizedTasks.length) {
-                        stmt.finalize(() => {
-                            res.status(201).json({
-                                id: projectId,
-                                name,
-                                description,
-                                priority,
-                                due_date: due_date || null,
-                                remaining_work: remaining_work || null,
-                                status: 'Active',
-                                created_tasks: completed
-                            });
-                        });
-                    }
+                  if (failed) return;
+                  if (taskErr) {
+                    failed = true;
+                    console.error('Task insert error:', taskErr.message);
+                    return res.status(500).json({ error: taskErr.message });
+                  }
+                  completed += 1;
+                  if (completed === normalizedTasks.length) {
+                    res.status(201).json({
+                      id: projectId,
+                      name,
+                      description,
+                      priority,
+                      due_date: due_date || null,
+                      remaining_work: remaining_work || null,
+                      status: 'Active',
+                      created_tasks: completed
+                    });
+                  }
                 }
             );
         });

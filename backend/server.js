@@ -31,11 +31,15 @@ app.use((err, req, res, next) => {
   res.status(500).send({ error: 'Internal Server Error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`
   🚀 Projectify Server Running
   ----------------------------
   Local: http://localhost:${PORT}
-  Database: SQL (SQLite) Connected
+  Database: Connected
   `);
-});
+  });
+}
+
+module.exports = app;
