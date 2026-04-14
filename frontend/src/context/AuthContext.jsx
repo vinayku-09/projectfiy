@@ -12,13 +12,23 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const savedUser = localStorage.getItem('projectify_user');
+    const savedToken = localStorage.getItem('token');
+    if (!savedToken) {
+      setLoading(false);
+      return;
+    }
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
     setLoading(false);
   }, []);
 
-  const login = (userData) => {
+  const login = (authPayload) => {
+    const token = authPayload?.token;
+    const userData = authPayload?.user || null;
+    if (token) {
+      localStorage.setItem('token', token);
+    }
     setUser(userData);
     localStorage.setItem('projectify_user', JSON.stringify(userData));
     navigate('/dashboard');
@@ -27,7 +37,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     // Clear state and storage
     setUser(null);
-    localStorage.clear(); // Clears user and token
+    localStorage.removeItem('token');
+    localStorage.removeItem('projectify_user');
     
     // Redirect to home route
     navigate('/'); 

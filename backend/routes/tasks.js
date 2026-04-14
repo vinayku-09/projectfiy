@@ -38,7 +38,7 @@ router.get('/projects/:project_id/tasks', (req, res) => {
     const params = [project_id, userId];
 
     if (status) {
-        sql += ` AND LOWER(status) IN (?, ?)`;
+        sql += ` AND LOWER(t.status) IN (?, ?)`;
         const normalized = normalizeStatusForApi(status);
         if (normalized === 'done') {
             params.push('done', 'completed');
@@ -49,7 +49,7 @@ router.get('/projects/:project_id/tasks', (req, res) => {
         }
     }
 
-    sql += ` ORDER BY due_date ASC, created_at DESC`;
+    sql += ` ORDER BY t.due_date ASC, t.created_at DESC`;
 
     db.all(sql, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });

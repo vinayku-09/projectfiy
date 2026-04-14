@@ -10,6 +10,7 @@ import API from '../api/axios';
 import AddProjectModal from '../components/modals/AddProjectModal';
 
 const LIMIT_OPTIONS = [6, 10, 15, 25, 50];
+const toCount = (value) => Number(value) || 0;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getPriorityStyle = (priority) => {
@@ -273,9 +274,9 @@ const Dashboard = () => {
       // otherwise fall back to a separate /tasks/stats endpoint
       if (list[0]?.task_counts) {
         const agg = list.reduce((acc, p) => ({
-          todo:       acc.todo       + (p.task_counts?.todo        || 0),
-          inProgress: acc.inProgress + (p.task_counts?.in_progress || 0),
-          done:       acc.done       + (p.task_counts?.done        || 0),
+          todo:       acc.todo       + toCount(p.task_counts?.todo),
+          inProgress: acc.inProgress + toCount(p.task_counts?.in_progress),
+          done:       acc.done       + toCount(p.task_counts?.done),
         }), { todo: 0, inProgress: 0, done: 0 });
         setStats({ ...agg, total: agg.todo + agg.inProgress + agg.done });
       } else {
@@ -337,17 +338,29 @@ const Dashboard = () => {
 
     try {
       setSearchError('');
-      const res = await API.get(`/projects/${id}`);
-      const project = res.data;
+      const displayId = Number(id);
+      const targetPage = Math.ceil(displayId / limit);
+      const targetIndex = (displayId - 1) % limit;
+
+      const res = await API.get('/projects', {
+        params: { page: targetPage, limit, sortBy, sortOrder }
+      });
+      const list = res.data?.projects || [];
+      const project = list[targetIndex];
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      setPage(targetPage);
       setProjects([project]);
       setTotalPages(1);
       setTotalCount(1);
       const tc = project?.task_counts || { todo: 0, in_progress: 0, done: 0 };
       setStats({
-        todo: tc.todo || 0,
-        inProgress: tc.in_progress || 0,
-        done: tc.done || 0,
-        total: (tc.todo || 0) + (tc.in_progress || 0) + (tc.done || 0),
+        todo: toCount(tc.todo),
+        inProgress: toCount(tc.in_progress),
+        done: toCount(tc.done),
+        total: toCount(tc.todo) + toCount(tc.in_progress) + toCount(tc.done),
       });
       setIsSearchMode(true);
     } catch (err) {
@@ -518,10 +531,14 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {projects.length > 0 ? projects.map((project) => {
+                {projects.length > 0 ? projects.map((project, index) => {
                   const tc    = project.task_counts || {};
-                  const total = (tc.todo || 0) + (tc.in_progress || 0) + (tc.done || 0);
-                  const pct   = total > 0 ? Math.round(((tc.done || 0) / total) * 100) : 0;
+                  const todoCount = toCount(tc.todo);
+                  const inProgressCount = toCount(tc.in_progress);
+                  const doneCount = toCount(tc.done);
+                  const total = todoCount + inProgressCount + doneCount;
+                  const pct   = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+                  const displayProjectId = (page - 1) * limit + index + 1;
 
                   return (
                     <tr
@@ -529,7 +546,7 @@ const Dashboard = () => {
                       className="hover:bg-white/[0.02] transition-all group"
                     >
                       <td className="px-6 py-5 font-mono text-xs text-gray-600">
-                        #{String(project.id).padStart(3, '0')}
+                        #{String(displayProjectId).padStart(3, '0')}
                       </td>
                       <td className="px-6 py-5">
                         <button
